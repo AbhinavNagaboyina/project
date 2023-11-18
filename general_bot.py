@@ -4,29 +4,29 @@ from dotenv import load_dotenv
 import os
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
+import time
 
 load_dotenv()
-chat_history = []
-
 class ChatBot:
     def __init__(self, bot_name, bot_model, bot_context_prompt, bot_temperature):
         self.bot_name = bot_name
         self.bot_model = bot_model
         self.bot_context_prompt = bot_context_prompt
         self.bot_temperature = bot_temperature
+        self.chat_history = [] 
         self.llm = ChatOpenAI(model=bot_model, temperature=bot_temperature, verbose=True, streaming=True)
-        
-        if "messages" not in st.session_state:
-            st.session_state["messages"] = [SystemMessage(content=bot_context_prompt)]
-
+        self.chat_history_key = f"chat_history_{bot_name}"
+        if self.chat_history_key not in st.session_state:
+            st.session_state[self.chat_history_key] = [SystemMessage(content=bot_context_prompt)]
 
     def st_centered_text(self, text: str):
         st.markdown(f"<h1 style='text-align: center; color: white;'>{text} 🤖🗣️ </h1>", unsafe_allow_html=True)
-
+    def clear_input(self):
+        st.session_state.user_input = ""
     def process_input(self, user_input):
-        st.session_state["messages"].append(HumanMessage(content=user_input))
-        response = self.llm(st.session_state["messages"])
-        st.session_state["messages"].append(AIMessage(content=response.content))
+        st.session_state[self.chat_history_key].append(HumanMessage(content=user_input))
+        response = self.llm(st.session_state[self.chat_history_key])
+        st.session_state[self.chat_history_key].append(AIMessage(content=response.content))
         return response
 
     def run(self):
@@ -48,24 +48,38 @@ class ChatBot:
         }
         </style>
         """, unsafe_allow_html=True)
+        if 'user_input' not in st.session_state:
+            st.session_state['user_input'] = ''
+        user_input_key = f"user_input_{len(self.chat_history)}"
+        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", key="user_input_key",on_change=self.clear_input)
+        
+        # Generate a unique key for the clear button
+        clear_button_key = f"clear_button_{len(self.chat_history)}"
 
-        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", key="user_input")
-        clear_button= st.button("Clear the bot")
+        # Create the clear button using the unique key
+        clear_button = st.button("Clear the bot", key=clear_button_key)
 
         if user_input:
-            chat_history.append(user_input)
             resp = self.process_input(user_input)
-            chat_history.append(resp.content)
+            st.session_state['user_input'] = ''
 
-            if clear_button:
-                st.session_state["messages"].clear()
-                chat_history.clear()
-                self.st_centered_text("Chat history is cleared, Thanking you for using")
-                
-        for i,msg in enumerate(chat_history):
-            if i%2==0:
-                message(msg, is_user= True)
-            else:
-                message(msg, is_user= False)
-        
-        
+        if clear_button:
+        # Clear the chat history stored in session_state
+            st.session_state[self.chat_history_key].clear()
+
+            # Clear the instance-specific chat history
+            self.chat_history.clear()
+
+            # Display a message after clearing the history
+            self.st_centered_text("Chat history is cleared, Thanking you for using")
+            
+        for i, msg in enumerate(st.session_state[self.chat_history_key]):
+            timestamp = time.time()
+            unique_key = f"chat_{i}_{timestamp}"
+            if isinstance(msg, HumanMessage):
+                # Display user message
+                message(msg.content, is_user=True, key=unique_key)
+            elif isinstance(msg, AIMessage):
+                # Display AI (bot) message
+                message(msg.content, is_user=False, key=unique_key)
+            # Ensure SystemMessage is handled correctly if needed

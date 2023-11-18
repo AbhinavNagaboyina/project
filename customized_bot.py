@@ -22,13 +22,16 @@ from langchain.schema import (
 chat_hist = []
 
 class CustomizedBot:
-    def __init__(self, bot_name):
+    def __init__(self, bot_name, context_prompt, input_dir):
         self.bot_name = bot_name
+        self.context_prompt = context_prompt
+        self.doc_dir = input_dir
+        self.chat_history = []
         dotenv_path = '.env'
         load_dotenv(dotenv_path)
         openai.api_key = os.getenv("OPENAI_API_KEY")
         self.client = QdrantClient(":memory:")
-        self.documents = SimpleDirectoryReader('files/').load_data()
+        self.documents = SimpleDirectoryReader(self.doc_dir).load_data()
         self.service_context = ServiceContext.from_defaults(chunk_size=512)
         self.vector_store = QdrantVectorStore(client=self.client, collection_name="Covid19_latest_guidelines")
         self.start = datetime.now()
@@ -36,14 +39,19 @@ class CustomizedBot:
         self.index = GPTVectorStoreIndex.from_documents(self.documents, vector_store=self.vector_store, service_context=self.service_context, show_progress=True)
         print("Finished loading content...", datetime.now() - self.start)
         self.query_engine = self.index.as_query_engine(similarity_top_k=2)
+        self.chat_history_key = f"chat_history_{self.bot_name}"
+        if self.chat_history_key not in st.session_state:
+            st.session_state[self.chat_history_key] = [SystemMessage(content=context_prompt)]
 
     def st_centered_text(self, text: str):
         st.markdown(f"<h1 style='text-align: center; color: white;'>{text} 🤖🗣️ </h1>", unsafe_allow_html=True)
 
     
     def input_run(self, user_input):
+        st.session_state[self.chat_history_key].append(HumanMessage(content=user_input))
         with st.spinner("responding..."):
             response = self.query_engine.query(user_input)
+        st.session_state[self.chat_history_key].append(AIMessage(content=response.response))
         return response.response
     
     def run(self):
@@ -64,19 +72,24 @@ class CustomizedBot:
         }
         </style>
         """, unsafe_allow_html=True)
-
-        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", key="user_input")
-        clear_button= st.button("Clear the bot")
+        chat_history_key = f"chat_history_{self.bot_name}"
+        if 'user_input' not in st.session_state:
+            st.session_state['user_input'] = ''
+        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", value=st.session_state['user_input'], key=f"user_input_{self.bot_name}")
         if user_input:
-            chat_hist.append(user_input)
+              # Assuming HumanMessage takes content as an argument
             resp = self.input_run(user_input)
-            chat_hist.append(resp)
-            if clear_button:
-                chat_hist.clear()
-                self.st_centered_text("Chat history is cleared, Thanking you for using")
-        
-        for i, msg in enumerate(chat_hist):
-            if i % 2 == 0:
-                message(msg, is_user=True)
-            else:
-                message(msg, is_user=False)
+            st.session_state['user_input'] = ''
+            
+        clear_button = st.button("Clear the bot", key=f"clear_button_{self.bot_name}")
+        if clear_button:
+            # Clear the specific bot's chat history in session_state
+            st.session_state[self.chat_history_key].clear()
+            self.st_centered_text("Chat history is cleared, Thanking you for using")
+
+        if self.chat_history_key in st.session_state:
+            for i, msg in enumerate(st.session_state[self.chat_history_key]):
+                if isinstance(msg, HumanMessage):
+                    message(msg.content, is_user=True, key=f"message_{i}_{self.bot_name}")
+                else:
+                    message(msg.content, is_user=False, key=f"message_{i}_{self.bot_name}")
