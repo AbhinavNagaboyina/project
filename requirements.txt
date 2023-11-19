@@ -8,3 +8,4 @@ streamlit-chat
 openai
 loguru
 streamlit_chat
+langchain
