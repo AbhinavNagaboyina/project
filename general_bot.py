@@ -18,7 +18,6 @@ class ChatBot:
         self.chat_history_key = f"chat_history_{bot_name}"
         if self.chat_history_key not in st.session_state:
             st.session_state[self.chat_history_key] = [SystemMessage(content=bot_context_prompt)]
-
     def st_centered_text(self, text: str):
         st.markdown(f"<h1 style='text-align: center; color: white;'>{text} 🤖🗣️ </h1>", unsafe_allow_html=True)
     def clear_input(self):
@@ -51,7 +50,7 @@ class ChatBot:
         if 'user_input' not in st.session_state:
             st.session_state['user_input'] = ''
         user_input_key = f"user_input_{len(self.chat_history)}"
-        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", key="user_input_key",on_change=self.clear_input)
+        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", key=f"user_input_{self.bot_name}",on_change=self.clear_input,value=st.session_state['user_input'])
         
         # Generate a unique key for the clear button
         clear_button_key = f"clear_button_{len(self.chat_history)}"

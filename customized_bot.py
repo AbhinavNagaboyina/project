@@ -75,12 +75,12 @@ class CustomizedBot:
         chat_history_key = f"chat_history_{self.bot_name}"
         if 'user_input' not in st.session_state:
             st.session_state['user_input'] = ''
-        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", value=st.session_state['user_input'], key=f"user_input_{self.bot_name}")
+        user_input=st.text_input("Please provide your query and dont forget to hit enter: ", key=f"user_input_{self.bot_name}", value=st.session_state['user_input'])
         if user_input:
               # Assuming HumanMessage takes content as an argument
             resp = self.input_run(user_input)
             st.session_state['user_input'] = ''
-            
+
         clear_button = st.button("Clear the bot", key=f"clear_button_{self.bot_name}")
         if clear_button:
             # Clear the specific bot's chat history in session_state
