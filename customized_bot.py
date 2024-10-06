@@ -1,23 +1,14 @@
-from __future__ import absolute_import
-import streamlit as st
-from dotenv import load_dotenv
-import datetime
-from streamlit_chat import message
-import os
-from datetime import datetime
-from llama_index import (GPTVectorStoreIndex, ServiceContext,
-                         SimpleDirectoryReader)
+from llama_index.core import (VectorStoreIndex, SimpleDirectoryReader, StorageContext)
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+from dotenv import load_dotenv
+import os
 import openai
+from datetime import datetime
 import streamlit as st
-from llama_index import StorageContext, load_index_from_storage
-import llama_index
-from langchain.schema import (
-    SystemMessage,
-    HumanMessage,
-    AIMessage
-)
+from langchain.schema import SystemMessage, HumanMessage, AIMessage
+from streamlit_chat import message
+
 
 chat_hist = []
 
@@ -26,20 +17,31 @@ class CustomizedBot:
         self.bot_name = bot_name
         self.context_prompt = context_prompt
         self.doc_dir = input_dir
-        self.chat_history = []
         dotenv_path = '.env'
         load_dotenv(dotenv_path)
         openai.api_key = os.getenv("OPENAI_API_KEY")
+        
+        # Initialize Qdrant Vector Store
         self.client = QdrantClient(":memory:")
+        self.vector_store = QdrantVectorStore(client=self.client, collection_name="medical_field")
+
+        # Load the documents
         self.documents = SimpleDirectoryReader(self.doc_dir).load_data()
-        self.service_context = ServiceContext.from_defaults(chunk_size=512)
-        self.vector_store = QdrantVectorStore(client=self.client, collection_name="Covid19_latest_guidelines")
+        
+        # Initialize StorageContext without chunk_size
+        self.storage_context = StorageContext.from_defaults()
+        
+        # Initialize VectorStoreIndex
         self.start = datetime.now()
         print("Started loading content...", self.start)
-        self.index = GPTVectorStoreIndex.from_documents(self.documents, vector_store=self.vector_store, service_context=self.service_context, show_progress=True)
+        
+        self.index = VectorStoreIndex.from_documents(self.documents, vector_store=self.vector_store, storage_context=self.storage_context, show_progress=True)
+        
         print("Finished loading content...", datetime.now() - self.start)
+        
         self.query_engine = self.index.as_query_engine(similarity_top_k=2)
         self.chat_history_key = f"chat_history_{self.bot_name}"
+        
         if self.chat_history_key not in st.session_state:
             st.session_state[self.chat_history_key] = [SystemMessage(content=context_prompt)]
 
