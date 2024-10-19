@@ -107,6 +107,7 @@ with st.sidebar:
                             botmanager.initialize_new_bot()
                     st.session_state['show_create_bot_form'] = False
     botmanager.display_bots()
+    print("bots")
 
 if 'selected_bot_details' in st.session_state:
     botmanager.initialize_new_bot()  # Clear input field when a bot is selected
