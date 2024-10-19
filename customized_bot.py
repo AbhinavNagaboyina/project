@@ -80,7 +80,7 @@ class CustomizedBot:
               # Assuming HumanMessage takes content as an argument
             resp = self.input_run(user_input)
             st.session_state['user_input'] = ''
-
+        print(botds)
         clear_button = st.button("Clear the bot", key=f"clear_button_{self.bot_name}")
         if clear_button:
             # Clear the specific bot's chat history in session_state
